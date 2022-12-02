@@ -115,7 +115,7 @@ pub fn part2(input: &str) -> u32 {
                     0 => Move::Rock,
                     1 => Move::Scissors,
                     2 => Move::Paper,
-                    _ => panic!()
+                    _ => unreachable!()
                 };
 
                 Game(m0, m1)
