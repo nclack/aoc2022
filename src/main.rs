@@ -1,4 +1,5 @@
 mod day1;
+mod day2;
 
 macro_rules! problems {
     ()=>{};
@@ -23,5 +24,6 @@ macro_rules! problems {
 fn main() {
     problems!(
         day1 part1 part2,
+        day2 part1 part2,
     );
 }

@@ -1,0 +1,7 @@
+cflags = -Wall
+builddir=build
+
+rule cc
+  command = clang $cflags $in -o $builddir/$out
+
+build day1: cc day1.c
