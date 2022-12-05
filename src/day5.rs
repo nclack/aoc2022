@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use nom::{
     branch::alt,
     bytes::complete::tag,
