@@ -1,10 +1,10 @@
-use std::ops::Index;
+use std::{cmp::Reverse, collections::BinaryHeap, ops::Index};
 
 use itertools::Itertools;
 use nom::{
     character::complete::{digit1, line_ending},
     combinator::{map, opt},
-    multi::many1_count,
+    multi::many0_count,
     sequence::terminated,
     IResult,
 };
@@ -24,8 +24,8 @@ impl<'a> Index<(usize, usize)> for Image<'a> {
 }
 
 fn parse(input: &str) -> IResult<&str, Image> {
-    let (rest, width) = terminated(map(digit1, |d: &str| d.len()), line_ending)(input)?;
-    let (rest, height) = many1_count(terminated(digit1, opt(line_ending)))(rest)?;
+    let (rest, width) = terminated(map(digit1, |d: &str| d.len()), opt(line_ending))(input)?;
+    let (rest, height) = many0_count(terminated(digit1, opt(line_ending)))(rest)?;
     Ok((
         rest,
         Image {
@@ -36,139 +36,251 @@ fn parse(input: &str) -> IResult<&str, Image> {
     ))
 }
 
-fn scan<IX, IY>(im: &Image, dr: (isize, isize), xs: IX, ys: IY) -> Vec<u8>
-where
-    IX: IntoIterator<Item = usize> + Clone,
-    IY: IntoIterator<Item = usize>,
-{
-    let mut mx = im.data.to_vec();
-    let w = im.shape.0 as usize;
-    for y in ys {
-        for x in xs.clone() {
-            mx[x + y * (w + 1)] = [dr, (0, 0)]
-                .into_iter()
-                .map(|dr| ((x as isize + dr.0) as usize, (y as isize + dr.1) as usize))
-                .map(|r| mx[r.0 + r.1 * (w + 1)])
-                .max()
-                .unwrap()
-        }
-    }
-    mx
-}
-
-fn scan2<IX, IY>(im: &Image, dr: (isize, isize), xs: IX, ys: IY) -> Vec<usize>
+// segmented max scan
+fn scan<IX, IY>(im: &Image, dr: (isize, isize), xs: IX, ys: IY) -> Vec<usize>
 where
     IX: IntoIterator<Item = usize> + Clone,
     IY: IntoIterator<Item = usize>,
 {
     let mut out: Vec<_> = (0..im.stride * im.shape.1).collect();
     for y in ys {
+        let ny = (y as isize + dr.1) as usize;
         for x in xs.clone() {
-            let neighbor =
-                ((x as isize + dr.0) + (y as isize + dr.1) * im.stride as isize) as usize;
+            let nx = (x as isize + dr.0) as usize;
+            let neighbor = nx + ny * im.stride;
             let cur = x + y * im.stride;
             // set the current cell to the location of the highest tree seen
             // along the direction set by dr
-            out[cur] = if im.data[out[neighbor]] >= im.data[cur] {
-                neighbor
-            } else {
+            out[cur] = if im.data[cur] > im.data[out[neighbor]] {
                 cur
+            } else {
+                out[neighbor]
             };
         }
     }
     out
 }
 
-/*
-30373
-25512
-65332
-33549
-35390
-
-top
-012345
-67890
-*/
-
 pub(crate) fn part1(input: &str) -> usize {
     let (_rest, im) = parse(input).unwrap();
-
-    let tmp=scan2(&im, (0, -1), 0..im.shape.0, 1..im.shape.1);
-    p2(&tmp,im.shape.0,im.shape.1);
 
     let top = scan(&im, (0, -1), 0..im.shape.0, 1..im.shape.1);
     let left = scan(&im, (-1, 0), 1..im.shape.0, 0..im.shape.1);
     let bot = scan(&im, (0, 1), 0..im.shape.0, (0..im.shape.1 - 1).rev());
     let right = scan(&im, (1, 0), (0..im.shape.0 - 1).rev(), 0..im.shape.1);
 
-    let mut count = 0;
+    // if a cell has the highest tree then it's index will appear in one of
+    // the scans at a corresponding cell
+
+    (0..im.shape.0)
+        .cartesian_product(0..im.shape.1)
+        .map(|(x, y)| x + y * im.stride)
+        .filter(|&i| top[i] == i || left[i] == i || bot[i] == i || right[i] == i)
+        .count()
+}
+
+//
+// Abandon all hope ye who enter here
+//
+
+#[derive(Clone)]
+struct Interval {
+    beg: usize,
+    end: usize,
+    h: u8,
+    next: Option<usize>,
+}
+
+impl Interval {
+    fn length(&self) -> usize {
+        self.end - self.beg
+    }
+}
+
+fn follow(intervals: &[Option<Interval>], pos: usize, h: u8) -> (usize, usize) {
+    let mut pos = pos;
+    let mut score = 1;
+    while let Some(next) = {
+        let ival=intervals[pos].as_ref().unwrap();
+        if ival.h < h {
+            score = ival.length()
+        }
+        ival.next
+    }  {
+        pos = next;
+    }
+    return (score, pos);
+}
+
+fn watershed_rows(im: &Image, scores: &mut [usize]) {
     for y in 0..im.shape.1 {
-        for x in 0..im.shape.0 {
-            let h = im[(x, y)] as i8;
+        let mut intervals: Vec<Option<Interval>> = vec![None; im.stride * im.shape.1];
+        let mut queued = vec![false; im.stride * im.shape.1];
+        let mut q = BinaryHeap::new();
+        let row = &im.data[y * im.stride..(im.shape.0 + y * im.stride)];
+        let scores_row = &mut scores[y * im.stride..(im.shape.0 + y * im.stride)];
 
-            let t = if y > 0 {
-                top[x + (y - 1) * im.stride] as i8
-            } else {
-                -1
-            };
-            let l = if x > 0 {
-                left[x - 1 + y * im.stride] as i8
-            } else {
-                -1
-            };
-            let b = if y + 1 < im.shape.1 {
-                bot[x + (y + 1) * im.stride] as i8
-            } else {
-                -1
-            };
-            let r = if x + 1 < im.shape.1 {
-                right[x + 1 + y * im.stride] as i8
-            } else {
-                -1
-            };
+        // Prep boundary
+        intervals[0] = Some(Interval {
+            beg: 0,
+            end: 1,
+            h: row[0],
+            next: None,
+        });
+        intervals[im.shape.0 - 1] = Some(Interval {
+            beg: im.shape.0 - 2,
+            end: im.shape.0 - 1,
+            h: row[im.shape.0 - 1],
+            next: None,
+        });
+        scores_row[0] = 0;
+        scores_row[im.shape.0 - 1] = 0;
 
-            count += (t < h || l < h || b < h || r < h) as usize;
+        // init w values at min local minima
+        {
+            for (l, r) in (0..im.shape.0 - 2).zip(2..im.shape.0) {
+                if row[l] >= row[l + 1] || row[l + 1] <= row[r] {
+                    q.push(Reverse((row[l + 1], l + 1)));
+                    queued[l + 1] = true;
+                }
+            }
+        }
+
+        // watershed
+        while let Some(Reverse((h, i))) = q.pop() {
+            let (left_score, beg) = {
+                // i>0
+                if intervals[i - 1].is_some() {
+                    let (score, j) = follow(&intervals[..], i - 1, h);
+                    let mut interval = intervals[j].as_mut().unwrap();
+                    interval.next = Some(i);
+                    (score, interval.beg)
+                } else {
+                    if i >= 1 && !queued[i - 1] {
+                        q.push(Reverse((row[i - 1], i - 1)));
+                        queued[i - 1] = true;
+                    }
+                    (1, i - 1)
+                }
+            };
+            let (right_score, end) = {
+                // i+1<im.shape.0
+                if intervals[i + 1].is_some() {
+                    let (score, j) = follow(&intervals[..], i + 1, h);
+                    let mut interval = intervals[j].as_mut().unwrap();
+                    interval.next = Some(i);
+                    (score, interval.end)
+                } else {
+                    if i >= 1 && !queued[i + 1] {
+                        q.push(Reverse((row[i + 1], i + 1)));
+                        queued[i + 1] = true;
+                    }
+                    (1, i + 1)
+                }
+            };
+            scores_row[i] *= left_score * right_score;
+            intervals[i] = Some(Interval {
+                beg,
+                end,
+                h,
+                next: None,
+            });
         }
     }
-    count
 }
 
-fn p(data: &[u8], w: usize, h: usize) {
-    for y in 0..h {
-        for x in 0..w {
-            print!("{}", data[x + y * (w + 1)] - b'0');
-        }
-        println!("");
-    }
-    println!("");
-}
+fn watershed_cols(im: &Image, scores: &mut [usize]) {
+    for x in 0..im.shape.0 {
+        let mut intervals: Vec<Option<Interval>> = vec![None; im.stride * im.shape.1];
+        let mut queued = vec![false; im.stride * im.shape.1];
+        let mut q = BinaryHeap::new();
 
+        let col = |y: usize| im.data[x + y * im.stride];
 
-fn p2(data: &[usize], w: usize, h: usize) {
-    for y in 0..h {
-        for x in 0..w {
-            print!("{:3}", data[x + y * (w + 1)]);
+        // Prep boundary
+        intervals[0] = Some(Interval {
+            beg: 0,
+            end: 1,
+            h: col(0),
+            next: None,
+        });
+        intervals[im.shape.1 - 1] = Some(Interval {
+            beg: im.shape.1 - 2,
+            end: im.shape.1 - 1,
+            h: col(im.shape.1 - 1),
+            next: None,
+        });
+        scores[x] = 0;
+        scores[x + im.stride * (im.shape.1 - 1)] = 0;
+
+        // init w values at min local minima
+        {
+            for (l, r) in (0..im.shape.1 - 2).zip(2..im.shape.1) {
+                if col(l) >= col(l + 1) || col(l + 1) <= col(r) {
+                    q.push(Reverse((col(l + 1), l + 1)));
+                    queued[l + 1] = true;
+                }
+            }
         }
-        println!("");
+
+        // watershed
+        while let Some(Reverse((h, i))) = q.pop() {
+            let (left_score, beg) = {
+                // i>0
+                if intervals[i - 1].is_some() {
+                    let (score, j) = follow(&intervals[..], i - 1, h);
+                    let mut interval = intervals[j].as_mut().unwrap();
+                    interval.next = Some(i);
+                    (score, interval.beg)
+                } else {
+                    if i >= 1 && !queued[i - 1] {
+                        q.push(Reverse((col(i - 1), i - 1)));
+                        queued[i - 1] = true;
+                    }
+                    (1, i - 1)
+                }
+            };
+            let (right_score, end) = {
+                // i+1<im.shape.1
+                if intervals[i + 1].is_some() {
+                    let (score, j) = follow(&intervals[..], i + 1, h);
+                    let mut interval = intervals[j].as_mut().unwrap();
+                    interval.next = Some(i);
+                    (score, interval.end)
+                } else {
+                    if i >= 1 && !queued[i + 1] {
+                        q.push(Reverse((col(i + 1), i + 1)));
+                        queued[i + 1] = true;
+                    }
+                    (1, i + 1)
+                }
+            };
+            scores[x + i * im.stride] *= left_score * right_score;
+            intervals[i] = Some(Interval {
+                beg,
+                end,
+                h,
+                next: None,
+            });
+        }
     }
-    println!("");
 }
 
 pub(crate) fn part2(input: &str) -> usize {
     let (_rest, im) = parse(input).unwrap();
 
-    let top = scan(&im, (0, -1), 0..im.shape.0, 1..im.shape.1);
-    let left = scan(&im, (-1, 0), 1..im.shape.0, 0..im.shape.1);
-    let bot = scan(&im, (0, 1), 0..im.shape.0, (0..im.shape.1 - 1).rev());
-    let right = scan(&im, (1, 0), (0..im.shape.0 - 1).rev(), 0..im.shape.1);
+    let mut scores = vec![1; im.stride * im.shape.1];
+    watershed_rows(&im, &mut scores[..]);
+    watershed_cols(&im, &mut scores[..]);
 
-    p(&top, im.shape.0, im.shape.1);
-    p(&left, im.shape.0, im.shape.1);
-    p(&bot, im.shape.0, im.shape.1);
-    p(&right, im.shape.0, im.shape.1);
+    for y in 0..im.shape.1 {
+        for x in 0..im.shape.0 {
+            print!("{:5}", scores[x + y * im.stride]);
+        }
+        println!();
+    }
 
-    todo!()
+    scores.into_iter().max().unwrap()
 }
 
 #[test]
