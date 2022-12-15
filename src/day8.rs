@@ -273,13 +273,6 @@ pub(crate) fn part2(input: &str) -> usize {
     watershed_rows(&im, &mut scores[..]);
     watershed_cols(&im, &mut scores[..]);
 
-    for y in 0..im.shape.1 {
-        for x in 0..im.shape.0 {
-            print!("{:5}", scores[x + y * im.stride]);
-        }
-        println!();
-    }
-
     scores.into_iter().max().unwrap()
 }
 
