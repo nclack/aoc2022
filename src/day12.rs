@@ -124,7 +124,7 @@ pub(crate) fn part2(input: &str) -> usize {
 
 
 #[test]
-fn day8() {
+fn day12() {
     assert_eq!(31, part1(include_str!("../assets/day12.test.txt")));
     assert_eq!(29, part2(include_str!("../assets/day12.test.txt")));
 }
