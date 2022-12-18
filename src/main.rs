@@ -12,6 +12,7 @@ mod day11;
 mod day12;
 mod day13;
 mod day14;
+mod day15;
 
 macro_rules! problems {
     ()=>{};
@@ -49,5 +50,6 @@ fn main() {
         day12 part1 part2,
         day13 part1 part2,
         day14 part1 part2,
+        day15 part1 part2,
     );
 }
