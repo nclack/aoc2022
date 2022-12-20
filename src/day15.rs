@@ -159,7 +159,7 @@ fn process_square(input: &str, mx: i32) -> usize {
     //       Have to keep track of interior holes.
     //       Then looks for holes (counter-oriented contours) that 
     //       are inside the problem's bbox.
-    //       Bonus points if I can find an excuse to try GA
+    //       Bonus points if I can find an excuse to try PGA
 
     let (_rest, doc) = parse(input).unwrap();
     (0..mx)
