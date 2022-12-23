@@ -18,7 +18,7 @@ enum Move {
 enum Outcome {
     Win,
     Lose,
-    Draw
+    Draw,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -100,22 +100,22 @@ pub fn part2(input: &str) -> u32 {
                 //    0 1 2
                 // S1 0 1 2
                 // P2 1 2 0
-                // R0 2 0 1 
-                let a:u8 = match outcome {
+                // R0 2 0 1
+                let a: u8 = match outcome {
                     Outcome::Win => 0,
                     Outcome::Lose => 2,
                     Outcome::Draw => 1,
                 };
-                let b:u8= match m0 {
+                let b: u8 = match m0 {
                     Move::Rock => 2,
                     Move::Paper => 1,
                     Move::Scissors => 0,
                 };
-                let m1 = match (a+b)%3 {
+                let m1 = match (a + b) % 3 {
                     0 => Move::Rock,
                     1 => Move::Scissors,
                     2 => Move::Paper,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 };
 
                 Game(m0, m1)

@@ -37,12 +37,6 @@ pub fn part2(input: &str) -> u32 {
 
 #[test]
 fn day1() {
-    assert_eq!(
-        24000,
-        part1(include_str!("../assets/day1.test.txt"))
-    );
-    assert_eq!(
-        45000,
-        part2(include_str!("../assets/day1.test.txt"))
-    );
+    assert_eq!(24000, part1(include_str!("../assets/day1.test.txt")));
+    assert_eq!(45000, part2(include_str!("../assets/day1.test.txt")));
 }

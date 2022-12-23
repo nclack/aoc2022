@@ -105,9 +105,15 @@ pub(crate) fn part2(input: &str) -> usize {
     ];
     doc.iter()
         .chain(dividers[..].into_iter())
-        .sorted_by(|&a,&b| cmp(a,b))
+        .sorted_by(|&a, &b| cmp(a, b))
         .enumerate()
-        .filter_map(|(i,e)| if *e==dividers[0] || *e==dividers[1] {Some(i+1)} else {None})
+        .filter_map(|(i, e)| {
+            if *e == dividers[0] || *e == dividers[1] {
+                Some(i + 1)
+            } else {
+                None
+            }
+        })
         .product::<usize>()
 }
 

@@ -1,5 +1,12 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::Reverse,
+    collections::HashMap,
+    ops::{Index, IndexMut},
+    rc::Rc,
+};
 
+use itertools::Itertools;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -9,6 +16,7 @@ use nom::{
     sequence::{preceded, tuple},
     IResult,
 };
+use num_traits::ToPrimitive;
 
 #[derive(Debug)]
 struct Node {
@@ -151,6 +159,99 @@ fn build(doc: Doc) -> Graph {
     graph
 }
 
+struct Mat<T> {
+    inner: Vec<T>,
+    stride: usize,
+    shape: (usize, usize),
+}
+
+impl<T: Clone> Mat<T> {
+    fn new(rows: usize, cols: usize, val: T) -> Self {
+        Mat {
+            inner: vec![val; rows * cols],
+            stride: cols,
+            shape: (rows, cols),
+        }
+    }
+}
+
+impl<T> Index<(usize, usize)> for Mat<T> {
+    type Output = T;
+
+    fn index(&self, (row, col): (usize, usize)) -> &Self::Output {
+        &self.inner[col + row * self.stride]
+    }
+}
+
+impl<T> IndexMut<(usize, usize)> for Mat<T> {
+    fn index_mut(&mut self, (row, col): (usize, usize)) -> &mut Self::Output {
+        &mut self.inner[col + row * self.stride]
+    }
+}
+
+impl<T> IntoIterator for Mat<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
+impl<T: ToPrimitive + Copy> Mat<T> {
+    fn plot<P: AsRef<std::path::Path>>(&self, filename: P, title: &str) {
+        use plotters::prelude::*;
+        let root = BitMapBackend::new(&filename, (1024, 768)).into_drawing_area();
+
+        root.fill(&WHITE).unwrap();
+
+        let mut chart = ChartBuilder::on(&root)
+            .caption(title, ("sans-serif", 30))
+            .margin(5)
+            .top_x_label_area_size(40)
+            .y_label_area_size(40)
+            .build_cartesian_2d(0..self.shape.0 as i32, self.shape.1 as i32..0)
+            .unwrap();
+
+        chart
+            .configure_mesh()
+            .x_labels(self.shape.1)
+            .y_labels(self.shape.0)
+            .max_light_lines(4)
+            .x_label_offset(35)
+            .y_label_offset(25)
+            .disable_x_mesh()
+            .disable_y_mesh()
+            .label_style(("sans-serif", 20))
+            .draw()
+            .unwrap();
+
+        chart
+            .draw_series(
+                (0..self.shape.0)
+                    .cartesian_product(0..self.shape.1)
+                    .map(|(x, y)| {
+                        let v = self[(y, x)];
+                        let (x, y) = (x as i32, y as i32);
+                        Rectangle::new(
+                            [(x, y), (x + 1, y + 1)],
+                            HSLColor(
+                                240.0 / 360.0 - 240.0 / 360.0 * (v.to_f64().unwrap() / 20.0),
+                                0.7,
+                                0.1 + 0.4 * v.to_f64().unwrap() / 20.0,
+                            )
+                            .filled(),
+                        )
+                    }),
+            )
+            .unwrap();
+
+        // To avoid the IO failure being ignored silently, we manually call the present function
+        root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+        println!("Result has been saved to {:?}", filename.as_ref());
+    }
+}
+
 pub(crate) fn part1(input: &str) -> i64 {
     let graph = {
         let (_rest, doc) = parse(input).unwrap();
@@ -159,75 +260,109 @@ pub(crate) fn part1(input: &str) -> i64 {
     };
     graph.to_dot_file();
 
-    #[derive(Default, Debug, Clone, Copy)]
-    struct State {
-        score: i64,
-        valves: u64,
-        total_score: i64,
-    }
+    let n = graph.nodes.len();
 
-    const IMPOSSIBLE: i64 = -1 << 30;
-    let mut state = vec![
-        State {
-            score: IMPOSSIBLE,
-            valves: graph
-                .nodes
-                .iter()
-                // go ahead and open 0-score valves
-                .map(|(i, n)| if n.score == 0 { 1 << i } else { 0 })
-                .reduce(|acc, f| acc | f)
-                .unwrap(),
-            ..State::default()
-        };
-        graph.nodes.len()
-    ];
-    state[graph.start].score = 0;
+    //
+    // all pairs shortest paths
+    // next([src,dst]) will be the next node on the shortest path from src to dst
+    //
 
-    for t in 1..=35 {
-        state = (0..graph.nodes.len())
-            .map(|inode| {
-                // accumulate flow
-                let total_score = state[inode].total_score + state[inode].score.max(0);
-                // best score for this node at time t is:
-                // max([moves from edge nodes, stay at current and open valve])
-                // can only open valve if it's reachable at time t
-                let reachable = state[inode].score >= 0;
-                let can_open = (state[inode].valves >> inode) & 1 == 0;
-                let open_valve_score = if reachable && can_open {
-                    graph.nodes[&inode].score
-                } else {
-                    0
-                } + state[inode].score;
-                let (best_incoming_score, argmax) = graph
-                    .edges(inode)
-                    .map(|enode| (state[enode].score, enode))
-                    .max()
-                    .unwrap();
+    let (dt, next) = {
+        let mut score = Mat::new(n, n, 1 << 10);
+        let mut next = Mat::new(n, n, n << 2);
 
-                let (valves, score) = if open_valve_score >= best_incoming_score {
-                    // mark as opened on this path
-                    (state[inode].valves | 1 << inode, open_valve_score)
-                } else {
-                    // transfer valve state for best path
-                    (state[argmax].valves, best_incoming_score)
-                };
-                State {
-                    score,
-                    valves,
-                    total_score,
-                }
-            })
-            .collect();
-        {
-            let State {
-                score,
-                valves,
-                total_score,
-            } = state.iter().max_by_key(|s| (s.total_score,s.score)).unwrap();
-            println!("{t:3} {score:5} {total_score:5} {valves:#064b}");
+        for i in 0..n {
+            score[(i, i)] = 0;
+            next[(i, i)] = i;
+            for j in graph.edges(i) {
+                score[(i, j)] = 1;
+                next[(i, j)] = j;
+            }
         }
+
+        for k in 0..n {
+            for src in 0..n {
+                for dst in 0..n {
+                    if score[(src, dst)] > score[(src, k)] + score[(k, dst)] {
+                        score[(src, dst)] = score[(src, k)] + score[(k, dst)];
+                        next[(src, dst)] = next[(src, k)];
+                    }
+                }
+            }
+        }
+        #[cfg(feature = "debug")]
+        {
+            score.plot("dt.png", "Time");
+            next.plot("next.png", "Next");
+        }
+        (score, next)
+    };
+
+    // dfs for best path
+
+    // Given some previous part of the path, find the best continuation
+
+    let valves: Vec<_> = graph
+        .nodes
+        .iter()
+        .filter(|&(_, v)| v.score > 0)
+        .sorted_by_key(|(_, v)| Reverse(v.score))
+        .map(|(k, _)| *k)
+        .collect();
+
+    let mut path = vec![graph.start];
+    let mut used = 0u64;
+    let mut flow = 0;
+    let mut total = 0;
+
+    /// compute the sum of the shortest edges from each remaining valve
+    fn lower_bound_time(dt: &Mat<i32>, valves: &[usize], used: u64) -> i32 {
+        valves
+            .iter()
+            .enumerate()
+            .filter(|(_, &v)| (used >> v) & 1 == 0)
+            .map(|(i, &src)| {
+                // min over unused nodes k in valves s.t. i<j
+                valves
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &dst)| (used >> dst) & 1 == 0)
+                    .filter(|&(j, _)| i < j)
+                    .map(|(_, &dst)| dt[(src, dst)])
+                    .min()
+                    .unwrap()
+            })
+            .sum()
     }
-    state.into_iter().map(|s| s.total_score).max().unwrap()
+
+    /// assuming valves is ordered in descending order of flow, compute the
+    /// total score as if each was visited in turn and separated by dt
+    /// where dt is the minimum number of steps between the unused valves
+    fn upper_bound_score(graph: Graph, dt: &Mat<i32>, valves: &[usize], used: u64) -> i64 {
+        let unused: Vec<_> = valves.iter().filter(|&v| (used >> v) & 1 == 0).collect();
+        let dt_min = &unused[..]
+            .into_iter()
+            .cartesian_product(&unused[..])
+            .map(|(&src, &dst)| dt[(*src, *dst)])
+            .min()
+            .unwrap();
+        unused
+            .into_iter()
+            .map(|v| graph.nodes[v].score)
+            .fold((0, 0), |(flow, total), f| (flow + f, total + flow))
+            .1
+    }
+
+    let mut best_score=0;
+
+    for choice in 0..valves.len() {
+        let v={
+            
+        };
+        path[choice] = v;
+    }
+
+    todo!()
 }
 
 #[test]

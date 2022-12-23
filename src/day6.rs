@@ -1,32 +1,30 @@
 pub(crate) fn part1(input: &str) -> usize {
-    fn inc(counters: u128, c:char) -> u128{
-        counters + (1<<3*(c as u8-b'a'))
+    fn inc(counters: u128, c: char) -> u128 {
+        counters + (1 << 3 * (c as u8 - b'a'))
     }
 
-    fn dec(counters: u128, c:char) -> u128{
-        counters - (1<<3*(c as u8-b'a'))
+    fn dec(counters: u128, c: char) -> u128 {
+        counters - (1 << 3 * (c as u8 - b'a'))
     }
 
-    fn detected(counters:u128) -> bool {
+    fn detected(counters: u128) -> bool {
         0 == counters & 0xb6db6db6_db6db6db_6db6db6d_b6db6db6
     }
 
-    // This assumes the detection is at n if the there's none found for the 
+    // This assumes the detection is at n if the there's none found for the
     // first n-1 elements.
     input
         .chars()
         .zip(input.chars().skip(4))
         .scan(
             // Prime the counts
-            input.chars().take(4).fold(0, |counts, c| {
-                inc(counts,c)
-            }),
+            input.chars().take(4).fold(0, |counts, c| inc(counts, c)),
             |counts, (old, cur)| {
                 if detected(*counts) {
                     None
                 } else {
                     // abcdef -> (a)bcd(e) -> add e, sub a
-                    *counts=dec(inc(*counts,cur),old);
+                    *counts = dec(inc(*counts, cur), old);
                     Some(true)
                 }
             },
@@ -36,36 +34,37 @@ pub(crate) fn part1(input: &str) -> usize {
 }
 
 pub(crate) fn part2(input: &str) -> usize {
-    fn inc(mut counters: [u8;26], c:char) -> [u8;26]{
-        counters[(c as u8-b'a') as usize]+=1;
+    fn inc(mut counters: [u8; 26], c: char) -> [u8; 26] {
+        counters[(c as u8 - b'a') as usize] += 1;
         counters
     }
 
-    fn dec(mut counters: [u8;26], c:char) -> [u8;26]{
-        counters[(c as u8-b'a') as usize]-=1;
+    fn dec(mut counters: [u8; 26], c: char) -> [u8; 26] {
+        counters[(c as u8 - b'a') as usize] -= 1;
         counters
     }
 
-    fn detected(counters:[u8;26]) -> bool {
-        counters.iter().all(|&c| c<=1)
+    fn detected(counters: [u8; 26]) -> bool {
+        counters.iter().all(|&c| c <= 1)
     }
 
-    // This assumes the detection is at n if the there's none found for the 
+    // This assumes the detection is at n if the there's none found for the
     // first n-1 elements.
     input
         .chars()
         .zip(input.chars().skip(14))
         .scan(
             // Prime the counts
-            input.chars().take(14).fold([0;26], |counts, c| {
-                inc(counts,c)
-            }),
+            input
+                .chars()
+                .take(14)
+                .fold([0; 26], |counts, c| inc(counts, c)),
             |counts, (old, cur)| {
                 if detected(*counts) {
                     None
                 } else {
                     // abcdef -> (a)bcd(e) -> add e, sub a
-                    *counts=dec(inc(*counts,cur),old);
+                    *counts = dec(inc(*counts, cur), old);
                     Some(true)
                 }
             },

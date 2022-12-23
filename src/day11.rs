@@ -95,7 +95,7 @@ pub(crate) fn part1(input: &str) -> usize {
         for m in 0..monkeys.len() {
             while let Some(worry) = monkeys[m].items.pop_front() {
                 let worry = monkeys[m].op.apply(worry) / 3;
-                let next = monkeys[m].next[((worry % monkeys[m].divisor)==0) as usize];
+                let next = monkeys[m].next[((worry % monkeys[m].divisor) == 0) as usize];
                 monkeys[next].items.push_back(worry);
                 monkeys[m].count += 1;
             }
@@ -113,13 +113,13 @@ pub(crate) fn part1(input: &str) -> usize {
 pub(crate) fn part2(input: &str) -> usize {
     let (_rest, mut monkeys) = parse(input).unwrap();
 
-    let base:isize=monkeys.iter().map(|m| m.divisor).product();
+    let base: isize = monkeys.iter().map(|m| m.divisor).product();
 
     for _round in 0..10000 {
         for m in 0..monkeys.len() {
             while let Some(worry) = monkeys[m].items.pop_front() {
-                let worry = monkeys[m].op.apply(worry)%base;
-                let next = monkeys[m].next[((worry % monkeys[m].divisor)==0) as usize];
+                let worry = monkeys[m].op.apply(worry) % base;
+                let next = monkeys[m].next[((worry % monkeys[m].divisor) == 0) as usize];
                 monkeys[next].items.push_back(worry);
                 monkeys[m].count += 1;
             }
@@ -133,7 +133,6 @@ pub(crate) fn part2(input: &str) -> usize {
         .take(2)
         .product::<usize>()
 }
-
 
 #[test]
 fn day11() {

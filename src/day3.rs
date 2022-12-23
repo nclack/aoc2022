@@ -43,7 +43,7 @@ pub(crate) fn part1(input: &str) -> u32 {
 pub(crate) fn part2(input: &str) -> u32 {
     let (_, ps) = many1(map(line, |backpack: &str| items(backpack.as_bytes())))(input).unwrap();
     ps.chunks_exact(3)
-        .flat_map(|c| c.iter().map(|&e|e).reduce(|acc, p| acc & p))
+        .flat_map(|c| c.iter().map(|&e| e).reduce(|acc, p| acc & p))
         .map(|p| p.trailing_zeros())
         .sum()
 }

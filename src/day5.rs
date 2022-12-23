@@ -115,9 +115,9 @@ pub(crate) fn part2(input: &str) -> String {
 
     let mut state = build_state(&doc);
     for m in doc.moves {
-        let n=state[m.src-1].len();
-        let mut crates=state[m.src-1].split_off(n-m.count);
-        state[m.dst-1].append(&mut crates);
+        let n = state[m.src - 1].len();
+        let mut crates = state[m.src - 1].split_off(n - m.count);
+        state[m.dst - 1].append(&mut crates);
     }
 
     readout(state)

@@ -101,12 +101,12 @@ fn follow(intervals: &[Option<Interval>], pos: usize, h: u8) -> (usize, usize) {
     let mut pos = pos;
     let mut score = 1;
     while let Some(next) = {
-        let ival=intervals[pos].as_ref().unwrap();
+        let ival = intervals[pos].as_ref().unwrap();
         if ival.h < h {
             score = ival.length()
         }
         ival.next
-    }  {
+    } {
         pos = next;
     }
     return (score, pos);

@@ -9,7 +9,7 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug,Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Direction {
     L,
     R,
@@ -54,14 +54,14 @@ fn add(a: [i16; 2], b: [i16; 2]) -> [i16; 2] {
     [a[0] + b[0], a[1] + b[1]]
 }
 
-fn step_tail(dr:[i16;2], head: [i16; 2]) -> ([i16; 2], [i16; 2]) {
+fn step_tail(dr: [i16; 2], head: [i16; 2]) -> ([i16; 2], [i16; 2]) {
     let h = add(head, dr);
     match h {
         [x, y] if -1 <= x && x <= 1 && -1 <= y && y <= 1 => ([0, 0], h),
-        [-2,-2] => ([-1,-1],[-1,-1]),
-        [-2, 2] => ([-1, 1],[-1, 1]),
-        [ 2,-2] => ([ 1,-1],[ 1,-1]),
-        [ 2, 2] => ([ 1, 1],[ 1, 1]),
+        [-2, -2] => ([-1, -1], [-1, -1]),
+        [-2, 2] => ([-1, 1], [-1, 1]),
+        [2, -2] => ([1, -1], [1, -1]),
+        [2, 2] => ([1, 1], [1, 1]),
         [-2, y] => ([-1, y], [-1, 0]),
         [2, y] => ([1, y], [1, 0]),
         [x, -2] => ([x, -1], [0, -1]),
@@ -92,13 +92,13 @@ pub(crate) fn part2(input: &str) -> usize {
     commands
         .into_iter()
         .flat_map(|c| repeat(c.dir).take(c.count))
-        .scan((0,[[0, 0];10]), |(t,knots), dir| {
-            let mut dr=step(dir);
+        .scan((0, [[0, 0]; 10]), |(t, knots), dir| {
+            let mut dr = step(dir);
             for i in 0..9 {
                 (dr, knots[i]) = step_tail(dr, knots[i]);
             }
             knots[9] = add(knots[9], dr);
-            *t+=1;
+            *t += 1;
             Some(knots[9])
         })
         .collect::<HashSet<_>>()

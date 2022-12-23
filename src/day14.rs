@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    iter::repeat,
-};
+use std::{collections::HashSet, iter::repeat};
 
 use itertools::Itertools;
 use nom::{
@@ -78,10 +75,10 @@ pub(crate) fn part2(input: &str) -> usize {
     fn drop(im: &mut Image) -> bool {
         let mut pos = (500, 0);
         let moves = [(0, 1), (-1, 1), (1, 1)];
-        'step: while !im.data.contains(&(500,0)) {
+        'step: while !im.data.contains(&(500, 0)) {
             for m in moves {
                 let new = add(pos, m);
-                if new.1<im.floor+2 && !im.data.contains(&new) {
+                if new.1 < im.floor + 2 && !im.data.contains(&new) {
                     pos = new;
                     continue 'step;
                 }

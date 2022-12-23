@@ -53,7 +53,7 @@ impl Interval {
     // }
 
     fn len(&self) -> usize {
-        (self.1 - self.0-1) as usize
+        (self.1 - self.0 - 1) as usize
     }
 }
 
@@ -101,7 +101,7 @@ fn interval_at((sensor, beacon): &(Pos, Pos), y: i32) -> Option<[Bound; 2]> {
     if dx <= 0 {
         None
     } else {
-        Some([Bound::L(sensor.0 - dx), Bound::R(sensor.0 + dx+1)])
+        Some([Bound::L(sensor.0 - dx), Bound::R(sensor.0 + dx + 1)])
     }
 }
 
@@ -152,27 +152,30 @@ pub(crate) fn part1(input: &str) -> usize {
 }
 
 fn process_square(input: &str, mx: i32) -> usize {
-
-    // TODO: alternate approach. 
+    // TODO: alternate approach.
     //       Properly do polygon union's in the (x+1,x-y) space.
     //       It should be easier bc all the lines are axis aligned.
     //       Have to keep track of interior holes.
-    //       Then looks for holes (counter-oriented contours) that 
+    //       Then looks for holes (counter-oriented contours) that
     //       are inside the problem's bbox.
     //       Bonus points if I can find an excuse to try PGA
 
     let (_rest, doc) = parse(input).unwrap();
     (0..mx)
-        .flat_map(|y| 
+        .flat_map(|y| {
             line_coverage(&doc, y)
                 .into_iter()
-                .map(|x| Interval(x.0.max(0),x.1.min(mx+1)))
-                .filter_map(move |x| if x.len()!=mx as usize {
-                    Some(x.1 as usize*4_000_000+y as usize)
-                } else {
-                    None
+                .map(|x| Interval(x.0.max(0), x.1.min(mx + 1)))
+                .filter_map(move |x| {
+                    if x.len() != mx as usize {
+                        Some(x.1 as usize * 4_000_000 + y as usize)
+                    } else {
+                        None
+                    }
                 })
-        ).next().unwrap()
+        })
+        .next()
+        .unwrap()
 }
 
 pub(crate) fn part2(input: &str) -> usize {

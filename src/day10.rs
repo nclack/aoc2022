@@ -51,7 +51,7 @@ pub(crate) fn part1(input: &str) -> i32 {
 
 pub(crate) fn part2(input: &str) {
     let (_rest, effects) = parse(input).unwrap();
-    let im:Vec<_>=effects
+    let im: Vec<_> = effects
         .into_iter()
         .flat_map(|(dclock, dx)| {
             repeat(0)
@@ -60,14 +60,19 @@ pub(crate) fn part2(input: &str) {
         })
         .enumerate()
         .scan(1, |x, (i, dx)| {
-            let phase = (i%40) as i32;
-            let out = if *x - 1 <= phase && phase <= *x + 1 { '#' } else { ' ' };
+            let phase = (i % 40) as i32;
+            let out = if *x - 1 <= phase && phase <= *x + 1 {
+                '#'
+            } else {
+                ' '
+            };
             *x += dx;
             Some(out)
-        }).collect();
+        })
+        .collect();
 
     for row in &im.into_iter().chunks(40) {
-        println!("{}",String::from_iter(row));
+        println!("{}", String::from_iter(row));
     }
 }
 

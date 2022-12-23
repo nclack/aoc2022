@@ -2,3 +2,5 @@
 assets
 .vscode
 *.dot
+*.png
+*.svg

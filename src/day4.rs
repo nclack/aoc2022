@@ -27,7 +27,7 @@ pub(crate) fn part1(input: &str) -> usize {
         .1
         .into_iter()
         .filter(|(a, b)| (a.0 <= b.0 && b.1 <= a.1) || (b.0 <= a.0 && a.1 <= b.1))
-        .count() 
+        .count()
 }
 
 pub(crate) fn part2(input: &str) -> usize {
@@ -36,7 +36,7 @@ pub(crate) fn part2(input: &str) -> usize {
         .1
         .into_iter()
         .filter(|(a, b)| a.0 <= b.1 && b.0 <= a.1)
-        .count() 
+        .count()
 }
 
 #[test]

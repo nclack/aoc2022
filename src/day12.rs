@@ -1,7 +1,7 @@
-use std::{collections::{BinaryHeap}, iter::repeat, cmp::Reverse};
+use std::{cmp::Reverse, collections::BinaryHeap, iter::repeat};
 
 use nom::{
-    character::complete::{line_ending, alpha1},
+    character::complete::{alpha1, line_ending},
     combinator::{map, opt},
     multi::many0_count,
     sequence::terminated,
@@ -21,12 +21,12 @@ impl Image {
         self.shape.1 * self.stride
     }
 
-    fn as_pos(&self,i:isize)->(isize,isize) {
-        (i % self.stride as isize,i / self.stride as isize)
+    fn as_pos(&self, i: isize) -> (isize, isize) {
+        (i % self.stride as isize, i / self.stride as isize)
     }
 
     fn in_bounds(&self, i: isize) -> bool {
-        let (x,y) = self.as_pos(i);
+        let (x, y) = self.as_pos(i);
         0 <= x && x < self.shape.0 as isize && 0 <= y && y < self.shape.1 as isize
     }
 }
@@ -64,16 +64,16 @@ fn parse(input: &str) -> IResult<&str, Image> {
 
 pub(crate) fn part1(input: &str) -> usize {
     let (_rest, im) = parse(input).unwrap();
-    let mut steps: Vec<usize> = vec![1<<30; im.nelem()]; // set to something big
+    let mut steps: Vec<usize> = vec![1 << 30; im.nelem()]; // set to something big
 
     // newline's (10) are much less than b'a' so paths can go down there, but
     // they'll never come back up
 
-    steps[im.start as usize]=0;
-    let mut q:BinaryHeap<_> = repeat((Reverse(0),im.start as usize)).take(1).collect();
+    steps[im.start as usize] = 0;
+    let mut q: BinaryHeap<_> = repeat((Reverse(0), im.start as usize)).take(1).collect();
     let deltas = [-1, 1, -(im.stride as isize), im.stride as isize];
-    while let Some((_,cur)) = q.pop() {
-        if cur==im.end as usize {
+    while let Some((_, cur)) = q.pop() {
+        if cur == im.end as usize {
             return steps[cur];
         }
 
@@ -84,9 +84,9 @@ pub(crate) fn part1(input: &str) -> usize {
             .map(|n| n as usize)
             .filter(|&n| im.data[n] <= im.data[cur] + 1)
         {
-            if steps[cur]+1<steps[n] {
-                steps[n]=steps[cur]+1;
-                q.push((Reverse(steps[n]),n));
+            if steps[cur] + 1 < steps[n] {
+                steps[n] = steps[cur] + 1;
+                q.push((Reverse(steps[n]), n));
             }
         }
     }
@@ -95,14 +95,14 @@ pub(crate) fn part1(input: &str) -> usize {
 
 pub(crate) fn part2(input: &str) -> usize {
     let (_rest, im) = parse(input).unwrap();
-    let mut steps: Vec<usize> = vec![1<<30; im.nelem()];
-    let mut mn=1<<30;
+    let mut steps: Vec<usize> = vec![1 << 30; im.nelem()];
+    let mut mn = 1 << 30;
 
-    steps[im.end as usize]=0;
-    let mut q:BinaryHeap<_> = repeat((Reverse(0),im.end as usize)).take(1).collect();
+    steps[im.end as usize] = 0;
+    let mut q: BinaryHeap<_> = repeat((Reverse(0), im.end as usize)).take(1).collect();
     let deltas = [-1, 1, -(im.stride as isize), im.stride as isize];
-    while let Some((_,cur)) = q.pop() {
-        if im.data[cur]==b'a' {
+    while let Some((_, cur)) = q.pop() {
+        if im.data[cur] == b'a' {
             mn = mn.min(steps[cur]);
         }
 
@@ -111,17 +111,16 @@ pub(crate) fn part2(input: &str) -> usize {
             .map(|d| cur as isize + d)
             .filter(|&n| im.in_bounds(n))
             .map(|n| n as usize)
-            .filter(|&n| im.data[n] + 1 >= im.data[cur] )
+            .filter(|&n| im.data[n] + 1 >= im.data[cur])
         {
-            if steps[cur]+1<steps[n] {
-                steps[n]=steps[cur]+1;
-                q.push((Reverse(steps[n]),n));
+            if steps[cur] + 1 < steps[n] {
+                steps[n] = steps[cur] + 1;
+                q.push((Reverse(steps[n]), n));
             }
         }
     }
     mn
 }
-
 
 #[test]
 fn day12() {
