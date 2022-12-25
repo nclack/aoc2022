@@ -1,9 +1,8 @@
-use std::{
-    cell::Cell,
-    ops::{Index, IndexMut, Range},
-};
+
 
 use nom::{branch::alt, character::complete::char, combinator::value, multi::many1, IResult};
+
+const NBLOCKS: usize=5;
 
 fn left(x: u8) -> u8 {
     x << 1
@@ -35,7 +34,7 @@ struct Block {
 impl Block {
     fn new(i: usize) -> Block {
         #[rustfmt::skip]
-        let rows=[
+        let rows:[_;NBLOCKS]=[
                 //   L6543210R
                 //    1000001
                  &[0b00011110][..], // bottom
@@ -67,81 +66,59 @@ impl Block {
     }
 }
 
-struct CircBuf {
-    store: Vec<u8>,
-    len: usize,
-    tmp: Cell<Vec<u8>>,
-}
-
-impl CircBuf {
-    fn new(cap: usize) -> Self {
-        Self {
-            store: vec![0; cap],
-            len: 0,
-            tmp: Cell::new(Vec::new()),
+fn depths(ground: &[u8])->[usize;7] {
+    ground.into_iter().rev().enumerate().scan(
+        (0,[0;7]), |(known,depths),(i,&v)| {
+            for b in 0..7 {
+                if (*known>>b)&1==0 && (v>>b)&1==1 {
+                    *known |= 1<<b;
+                    depths[b]=i;
+                }
+            }
+            Some((*known,*depths))
         }
-    }
-    fn len(&self) -> usize {
-        self.len
-    }
-
-    fn append(&mut self, other: &mut Vec<u8>) {
-        // ^ call signature is just to match Vec::append()
-        let n = self.store.len();
-        for (i,v) in other.into_iter().enumerate() {
-            self.store[(self.len+i)%n]=*v;
-        }
-        self.len+=other.len();
-    }
-}
-
-impl Index<usize> for CircBuf {
-    type Output = u8;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.store[(index) % self.store.len()]
-    }
-}
-
-impl IndexMut<usize> for CircBuf {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        let n = self.store.len();
-        &mut self.store[(index) % n]
-    }
-}
-
-impl Index<Range<usize>> for CircBuf {
-    type Output = [u8];
-
-    fn index(&self, range: Range<usize>) -> &Self::Output {
-        let n = self.store.len();
-        if range.start / n == range.end / n {
-            &self.store[Range {
-                start: range.start % n,
-                end: range.end % n,
-            }]
-        } else {
-            self.tmp
-                .set([&self.store[range.start % n..], &self.store[..range.end % n]].concat());
-            unsafe { &(*self.tmp.as_ptr())[..] }
-        }
-    }
+    ).filter(|&(known,_)| known==0b111_1111)
+    .next().unwrap().1
 }
 
 fn solve(input: &str, nrocks:usize) -> usize {
     let (_rest, commands) = parse(input).unwrap();
 
-    let mut ip = 0;
-    let mut ground = CircBuf::new(100);
+    let period=commands.len()*NBLOCKS;
+    
+    let mut ground = Vec::new();
+    let mut d=[0;7];
+    let mut h=0;
+    let mut maxd=0;
 
+    simulate(&mut ground, nrocks, &commands);
+    ground.len()
+
+    // for irock in (0..nrocks).step_by(period) {
+    //     simulate(&mut ground, period.min(nrocks-irock), &commands);
+    //     d=depths(&ground);
+    //     maxd=*d.iter().max().unwrap();
+    //     print_ground(&ground,None);
+    //     let dh=ground.len()-maxd;
+    //     h+=dh;
+    //     ground.drain(0..dh); // ground.len() - dh = maxd
+
+    //     println!("{irock} {d:?} {dh} {h} {maxd}");
+    // }
+    // h
+}
+
+fn simulate(ground: &mut Vec<u8>, nrocks: usize, commands: &Vec<(fn(&u8) -> bool, fn(u8) -> u8)>) {
+    let mut ip = 0;
+    
     for irock in 0..nrocks {
 
-        if irock % 1000000 == 0 {
-            println!("HERE {irock}");
-        }
-
-        let mut block = Block::new(irock % 5);
+        let mut block = Block::new(irock % NBLOCKS);
         let mut y = ground.len() + 3;
+
+        if irock%NBLOCKS==0 {
+            println!("ip:{ip:3}-{:3} irock:{irock}",commands.len());
+        }
 
         'moving: loop {
             // move left/right
@@ -199,12 +176,11 @@ fn solve(input: &str, nrocks:usize) -> usize {
             ground[y + i] |= block.rows[i];
         }
     }
-    // print_ground(&ground);
-    ground.len()
 }
 
-fn print_ground(ground: &Vec<u8>) {
-    for (i, row) in ground.iter().enumerate().rev() {
+fn print_ground(ground: &Vec<u8>, nrows: Option<usize>) {
+    let nrows = if let Some(n) = nrows {n} else {ground.len()};
+    for (i, row) in ground.iter().enumerate().rev().take(nrows) {
         print!("{i:5} ");
         for b in (0..7).rev() {
             print!("{}", if (row >> b) & 1 == 1 { '#' } else { '.' });
@@ -225,5 +201,5 @@ pub(crate) fn part2(input:&str)->usize {
 #[test]
 fn day17() {
     assert_eq!(3068, part1(include_str!("../assets/day17.test.txt")));
-    assert_eq!(1514285714288, part2(include_str!("../assets/day17.test.txt")));
+    // assert_eq!(1514285714288, part2(include_str!("../assets/day17.test.txt")));
 }
